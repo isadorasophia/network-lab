@@ -9,41 +9,47 @@
  *
  * */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <netdb.h>
+#include "api.h"
 
-#define LISTEN_PORT 12345
+#define CLIENT_PORT 12345
 #define MAX_PENDING 5
-#define MAX_LINE 256
 
-#define ERROR -1
+void welcome() {
+    char* art = 
+"                                     /~\\ \n\
+                                    |oo )  \n\
+                                    _\\=/_ \n\
+                    ___        #   /  _  \\ \n\
+                   / ()\\        \\//|/.\\|\\ \n\
+                 _|_____|_       \\/  \\_/  || \n\
+                | | === | |         |\\ /| || \n\
+                |_|  O  |_|         \\_ _/ # \n\
+                 ||  O  ||          | | | \n\
+                 ||__*__||          | | | \n\
+                |~ \\___/ ~|         []|[] \n\
+                /=\\ /=\\ /=\\         | | | \n\
+________________[_]_[_]_[_]________/_]_[_\\________________\n";
 
-#define ever (;;)
-
-/* valid a status and report any errors found */
-void valid(int status, const char* msg) {
-    if (status == ERROR) {
-        fprintf(stderr, "%s", msg);
-        exit(EXIT_FAILURE);
-    }
+    fprintf(stdout, "%s\n-> Welcome to the server side of our application! \n\
+    Please enjoy as you watch our client contacting with us!\n\
+    We are currently available at: localhost.\n", 
+            art);
 }
 
-int main()
-{
+int main() {
     struct sockaddr_in socket_addr;
     
     char buff[MAX_LINE];
-    uint32_t len;
     int32_t s;
+
+    welcome();
+    wait();
 
     /* initialize data address */
     bzero((char*) &socket_addr, sizeof(socket_addr));
     socket_addr.sin_family      = AF_INET;              /* ipv4 addresses */
-    socket_addr.sin_port        = htons(LISTEN_PORT);
-    socket_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    socket_addr.sin_port        = htons(CLIENT_PORT);
+    socket_addr.sin_addr.s_addr = htonl(INADDR_ANY);    /* localhost */
 
     /* create passive socket */
     s = socket(AF_INET, SOCK_STREAM, 0);
@@ -60,28 +66,28 @@ int main()
 
     /* wait for connections and do my job! */
     for ever {
-        int conn = accept(s, (struct sockaddr*) NULL, NULL);
+        int32_t conn = accept(s, (struct sockaddr*) NULL, NULL);
         valid(conn, "Failed to establish a connection from socket.\n");
 
         for ever {
-            int res = recv(conn, buff, MAX_LINE, 0);
-            valid(res, 
+            int32_t len = recv(conn, buff, MAX_LINE, 0);
+            valid(len, 
                 "Failed to receive any message from my connection!\n");
 
             /* check if connection was terminated */
-            if (res == 0) {
+            if (len == 0) {
                 fprintf(stdout, "Connection closed!\n");
                 break; /* wait for another client */
             }
 
-            /* terminate buff based on size */
-            buff[res] = '\0';
+            /* set end on buff based on size */
+            buff[len] = '\0';
 
             /* print text on screen */
-            fprintf(stdout, "%s\n", buff);
+            fprintf(stdout, "<- %s", buff);
 
             /* send back to client */
-            if (send(conn, buff, res, 0) == ERROR) {
+            if (send(conn, buff, len, 0) == ERROR) {
                 printf("Failed to send echo to client!\n");
                 break;
             }
