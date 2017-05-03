@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
     bzero((char*) &socket_addr, sizeof(socket_addr));
     socket_addr.sin_family      = AF_INET;              /* ipv4 addresses */
     socket_addr.sin_port        = htons(SERVER_PORT);
-    socket_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    socket_addr.sin_addr = *(struct in_addr*)host_address->h_addr;
 
     /* create active socket */
     s = socket(AF_INET, SOCK_STREAM, 0);
@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 
         if (len == 0) {
             fprintf(stdout, "Connection was closed!\n");
-            break; /* wait for another client */
+            break;
         }
 
         /* set end on buff based on size */
