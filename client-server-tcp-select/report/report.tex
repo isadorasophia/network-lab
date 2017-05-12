@@ -92,7 +92,7 @@ int socket(int domain, int type, int protocol);
 s = socket(AF_INET, SOCK_STREAM, 0);
 	\end{lstlisting}
 
-	A função acima recebe como parâmetro a família da qual o endereço pertence (no nosso caso, IPv4), o tipo de socket (\texttt{SOCK\_STREAM}, que fornece streams de byte sequenciados, confiáveis e bidirecionais), e o protocolo a ser utilizado (0 significa que o socket vai utilizar um protocolo padrão apropriado para o tipo do socket requerido). \\
+	A função acima recebe como parâmetro a família da qual o endereço pertence (no nosso caso, IPv4), o tipo de socket (\texttt{SOCK\_STREAM}, que fornece streams de byte sequenciados, confiáveis e bidirecionais), e o protocolo a ser utilizado (0 significa que o socket vai utilizar um protocolo padrão apropriado para o tipo do socket requerido).
 
 \subsection{Estabelecer conexão com o servidor}
 
@@ -196,7 +196,7 @@ void error(const char* msg) {
     exit(EXIT_FAILURE);
 }
 
-/* validate a status and report any errors found */
+/* validate a status and report any errors */
 void valid(int status, const char* msg) {
     if (status == ERROR) {
         error(msg);
@@ -221,9 +221,120 @@ Semelhante ao comportamento do programa do cliente, o servidor foi divido em:
     mensagens que serão ecoadas na tela - as quais correspondem às mensagens que
     o cliente envia através da conexão com o servidor.
 
-\section{Conclusões finais}
+\subsection{Criar o socket passivo}
 
-precisa mesmo?? coloquei mais por whatever.
+Do mesmo modo que foi feito no cliente, foi criado um socket com a família da qual o endereço pertence (no nosso caso, IPv4), o tipo de socket (\texttt{SOCK\_STREAM}, que fornece streams de byte sequenciados, confiáveis e bidirecionais), e o protocolo a ser utilizado (0 significa que o socket vai utilizar um protocolo padrão apropriado para o tipo do socket requerido). O codigo usado é mostrado em \texttt{Code 2}.
+
+\subsection{Associação do socket com o descritor}
+
+
+\begin{lstlisting}[caption={Inicialização de endereço e porta}, label=Algorithm]
+/* initialize data address */
+bzero((char*) &socket_addr, sizeof(socket_addr));
+socket_addr.sin_family = AF_INET;
+socket_addr.sin_port = htons(CLIENT_PORT);
+socket_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	\end{lstlisting}
+
+Para associar o socket com o descritor, foi utilizado a mesma estrutura do lado do cliente, mas modificando \texttt{sin\_port} e \texttt{s\_addr} para se conectar a qualquer endereço de cliente que faça o request para conexão. Assim, foi feito o bind do socket e o setou de modo que ele ouça por conexões:
+
+\begin{lstlisting}[caption={Binding e Listening do socket}, label=Algorithm]
+/* assign socket to a descriptor */
+valid(bind(s, (struct sockaddr*) &socket_addr, 
+         sizeof(socket_addr)),
+        "Failed ...");
+
+/* allow socket to accept connections */
+valid(listen(s, MAX_PENDING),
+        "Failed...");
+\end{lstlisting}
+
+\subsection{Receber mensagem do cliente, exibi-las na tela e retorná-las}
+
+
+\begin{lstlisting}[caption={Estabelecimento de conexão e recebimento de mensagens}, label=Algorithm]
+/* wait for connections and do my job! */
+for ever {
+    int32_t conn = 
+    accept(s, (struct sockaddr*) NULL, NULL);
+
+    valid(conn, 
+    "Failed...");
+
+    for ever {
+        int32_t len = recv(conn, buff, MAX_LINE, 0);
+        valid(len, 
+            "Failed...");
+
+        /* check if connection was terminated */
+        if (len == 0) {
+            fprintf(stdout, "Connection closed!\n");
+            break; /* wait for another client */
+        }
+
+        /* set end on buff based on size */
+        buff[len] = '\0';
+
+        /* print text on screen */
+        fprintf(stdout, "<- %s", buff);
+
+        /* send back to client */
+        if (send(conn, buff, len, 0) == ERROR) {
+            printf("Failed to send echo to client!\n");
+            break;
+        }
+    }
+
+    close(conn);
+}
+	\end{lstlisting}
+
+	Acima, temos a estrutura de código que espera por uma conexão, tenta estabelece-la e então espera por mensagens do cliente. \\
+
+	Para estabelecer a conexão, ouvimos por algum request do seguinte modo:
+
+	\begin{lstlisting}[caption={Estabelecimento de conexão}, label=Algorithm]
+int32_t conn = accept(s, (struct sockaddr*) NULL, NULL);
+valid(conn, "Failed to establish a connection from socket.\n");
+	\end{lstlisting}
+
+	Assim, ouvimos por uma conexão e, se não for possível se conectar, lançamos uma mensagem de erro. \\
+
+	Se a conexão é estabelecida, esperamos por alguma mensagem do cliente, mostramos ela no servidor e mandamos ela devolta ao cliente:
+
+	\begin{lstlisting}[caption={Estabelecimento de conexão}, label=Algorithm]
+int32_t len = recv(conn, buff, MAX_LINE, 0);
+valid(len, 
+    "Failed to receive any message from my connection!\n");
+
+/* check if connection was terminated */
+if (len == 0) {
+    fprintf(stdout, "Connection closed!\n");
+    break; /* wait for another client */
+}
+
+/* set end on buff based on size */
+buff[len] = '\0';
+
+/* print text on screen */
+fprintf(stdout, "<- %s", buff);
+
+/* send back to client */
+if (send(conn, buff, len, 0) == ERROR) {
+    printf("Failed to send echo to client!\n");
+    break;
+}
+	\end{lstlisting}
+
+	Utilizamos a função \texttt{recv} para o recebimento da mensagem, checamos se a mensagem foi recebida corretamente, printamos no terminal do servidor e então utilizamos a função \texttt{send} para mandar a mesma mensagem devolta ao cliente.\\
+
+\subsection{Se algum erro ocorrer ou o cliente fechar a aplicação, fechar a conexão}
+
+Semelhante ao lado do servidor, utilizamos um conjunto de funções que lançam mensagens de erro caso algum ocorra, e utilizamos a função \texttt{close} para quando o erro demanda um fechamento da conexão
+
+\section{Testes}
+
+Para testarmos o funcionamento da estrutura, abrimos o processo do servidor e então do cliente e mandamos mensagens entre um e outro, como mostrado na \texttt{figura 1}. Então, testamos se as condições de erro foram corretamente implementadas, mandando endereços de servidores inexistentes ao cliente e fechando a aplicação do cliente para verificar se o servidor percebe o fechamento da conexão.
 
 %%% References %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
