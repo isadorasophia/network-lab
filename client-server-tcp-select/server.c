@@ -37,12 +37,19 @@ ________________[_]_[_]_[_]________/_]_[_\\________________\n";
             art);
 }
 
+typedef struct {
+    int descriptor;
+    int port;
+    int used;
+} Client;
+
 int main() {
     struct sockaddr_in socket_addr;
     char buff[MAX_LINE];
     unsigned int len;
-    int i, s, new_s, sockfd, cliente_num, maxfd, nready, clientes[FD_SETSIZE];
-    fd_set todos_fds, novo_set;
+    int i, s, new_s, sockfd, total_clients, maxfd, nready;
+    Client clients[FD_SETSIZE];
+    fd_set all_fds, new_set;
     char so_addr[INET_ADDRSTRLEN];
     char ip[INET_ADDRSTRLEN+1];
 
@@ -55,7 +62,7 @@ int main() {
     socket_addr.sin_port        = htons(LISTEN_PORT);
     socket_addr.sin_addr.s_addr = htonl(INADDR_ANY);    /* localhost */
 
-    /* create passive socket */
+    /* create active socket */
     s = socket(AF_INET, SOCK_STREAM, 0);
     valid(s, "Failed to create an endpoint for communication!\n");
 
@@ -74,89 +81,109 @@ int main() {
             "Failed to listen for socket connections.\n");
 
     maxfd = s;
-    cliente_num = -1;
-    for (i = 0; i < FD_SETSIZE; i++)
-        clientes[i] = -1;
+    total_clients = -1;
+    for (i = 0; i < FD_SETSIZE; i++) {
+        clients[i].used = false;
+    }
     
-    FD_ZERO(&todos_fds);
-    FD_SET(s, &todos_fds);
+    FD_ZERO(&all_fds);
+    FD_SET(s, &all_fds);
 
     /* wait for connections and do my job! */
     for ever {
+        new_set = all_fds;
+        nready = select(maxfd+1, &new_set, NULL, NULL, NULL);
+        valid(nready, "Select function failed!\n");
 
-        novo_set = todos_fds;
-        nready = select(maxfd+1, &novo_set, NULL, NULL, NULL);
-        valid(nready, "Select function failed\n");
-
-        if(FD_ISSET(s, &novo_set)) {
+        if (FD_ISSET(s, &new_set)) {
             len = sizeof(socket_addr);
             valid((new_s = accept(s, (struct sockaddr *)&socket_addr, &len)), 
                   "Failed to establish a connection from socket.\n");
 
-            /* Connect to client and show IP and Port of the connection */
+            /* connect to client and show IP and Port of the connection */
             struct sockaddr_in client;
             socklen_t client_size = sizeof(client);
 
-        
             int res = getpeername(new_s, (struct sockaddr *)&client, &client_size);
+            valid(res, "Couldn't get address of the peer connected to socket.\n");
 
-            inet_ntop(AF_INET, &(client.sin_addr), ip, INET_ADDRSTRLEN);
+            res = inet_ntop(AF_INET, &(client.sin_addr), ip, INET_ADDRSTRLEN);
+            valid(res, "Could not convert address between binary and text form.\n");
+
             ip[INET_ADDRSTRLEN] = '\0';
 
             /* print text on screen */
-            fprintf(stdout, "<- IP: %s PORT: %d Just Connected!\n", ip, ntohs(client.sin_port));
+            fprintf(stdout, "<- IP: %s PORT: %d Just Connected!\n", ip, 
+                ntohs(client.sin_port));
 
+            /* check available spot */
             for (i = 0; i < FD_SETSIZE; i++) {
-                if (clientes[i] < 0) {
-                    clientes[i] = new_s;    //guarda descritor
+                if (!clients[i].used) {
+                    clients[i].descriptor = new_s;
+                    clients[i].port = ntohs(client.sin_port);
+                    clients[i].used = true;
+
                     break;
                 }
             }
             
             if (i == FD_SETSIZE) {
-                perror("Numero maximo de clientes atingido.");
-                        exit(1);
+                error("Max. number of clients reached!");
             }
-            FD_SET(new_s, &todos_fds);      // adiciona novo descritor ao conjunto
-            if (new_s > maxfd)
-                maxfd = new_s;          // para o select
-            if (i > cliente_num)
-                cliente_num = i;        // Ã­ndice mÃ¡ximo no vetor clientes[]
-            if (--nready <= 0)
-                continue;           // nÃ£o existem mais descritores para serem lidos
+            
+            /* add new descriptor to our set */
+            FD_SET(new_s, &all_fds);
+            
+            /* set select */
+            if (new_s > maxfd) {
+                maxfd = new_s;
+            }
+            
+            if (i > total_clients) {
+                total_clients = i; 
+            }
+            
+            /* no more descriptors to be read */
+            if (--nready <= 0) {
+                continue;
+            }
         }
 
-        for (i = 0; i <= cliente_num; i++) {    // verificar se hÃ¡ dados em todos os clientes
-            if ( (sockfd = clientes[i]) < 0)
+        for (i = 0; i <= total_clients; i++) {  /* verify if there is data for all clients */
+            if (!clients[i].used) {
                 continue;
-            if (FD_ISSET(sockfd, &novo_set)) {
+            }
+
+            sockfd = clients[i].descriptor;
+            if (FD_ISSET(sockfd, &new_set)) {
                 len = recv(sockfd, buff, sizeof(buff), 0);
                 valid(len, 
                       "Failed to receive any message from my connection!\n");
 
-                if ( len == 0) {
-                    //conexÃ£o encerrada pelo cliente
-
+                if (len == 0) {
                     fprintf(stdout, "Connection closed!\n");
                     close(sockfd);
-                    FD_CLR(sockfd, &todos_fds);
-                    clientes[i] = -1;
+                    FD_CLR(sockfd, &all_fds);
+
+                    clients[i].used = false;
                 } else {
-                    /* imprime ip e porta do cliente e envia texto de volta */
+                    /* print ip and port for each client, and send text back! */
                     /* set end on buff based on size */
                     buff[len] = '\0';
 
                     /* print message on screen and Destination IP*/
-                    fprintf(stdout, "<- %s   Sent To: %s\n", buff, ip);
+                    fprintf(stdout, "<- %s\tsent to IP: %s at port: %d\n", buff, 
+                        ip, clients[i].port);
 
                     /* send back to client */
                     if (send(new_s, buff, len, 0) == ERROR) {
-                        printf("Failed to send echo to client!\n");
+                        fprintf(stdout, "Failed to send echo to client!\n");
                         break;
                     }
                 }
-                if (--nready <= 0)
-                    break;              // nÃ£o existem mais descritores para serem lidos
+
+                if (--nready <= 0) break; /* it isn't expecting any more 
+                                           * descriptor to be read */ 
             }
         }
 

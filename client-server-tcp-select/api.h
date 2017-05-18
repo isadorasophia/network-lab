@@ -19,6 +19,10 @@
 #define ERROR -1
 #define ever (;;)
 
+#define true 1
+#define false 0
+#define bool int
+
 void error(const char* msg) {
     fprintf(stderr, "\t[ERROR] %s", msg);
     exit(EXIT_FAILURE);
