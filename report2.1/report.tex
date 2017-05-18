@@ -63,28 +63,48 @@ Além disso, um \textit{ack} é enviado para cada um dos clientes, em formato de
 
 %%% Seções %%%%%%%#####%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{client.c}
-O código para o cliente não sofreu nenhuma modificação em relação aos projetos anteriores,
+O código para o cliente não sofreu nenhuma modificação funcional em relação aos projetos anteriores,
 uma vez que o seu comportamento continua o mesmo, basta conectar-se ao IP do servidor e 
-a uma porta disponível.
+a uma porta disponível. Então, imprime a porta e o ip do servidor conectado.
 
 O fluxo de execução de \texttt{client.c} pode ser resumido, portanto, em:
 
 \begin{enumerate}
     \item Criar o socket de conexão;
-    \item Estabelecer conexão com o servidor;
+    \item Estabelecer conexão com o servidor e imprimir porta e ip para o usuário;
     \item Receber mensagem do usuário, mandar ao servidor e esperar resposta;
     \item Se algum erro ocorrer ou o cliente fechar a aplicação, fechar a conexão.
 \end{enumerate}
+
+
+\begin{lstlisting}[caption={Recuperação da porta e IP do servidor conectado}, label=Algorithm]
+    /* Get socket IP and Port and show to client */
+    struct sockaddr_in server;
+    socklen_t server_size = sizeof(server);
+
+    int res = getsockname(s, 
+        (struct sockaddr *)&server, &server_size);
+
+    char ip[INET_ADDRSTRLEN+1];
+    inet_ntop(AF_INET, &(client.sin_addr), 
+        ip, INET_ADDRSTRLEN);
+    ip[INET_ADDRSTRLEN] = '\0';
+
+    /* print text on screen */
+    fprintf(stdout, "<- IP: s PORT: d Connected!\n", 
+        ip, ntohs(client.sin_port));
+\end{lstlisting}
 
 \section{server.c}
 Semelhante ao comportamento do programa do cliente, o servidor foi divido em:
 
 \begin{enumerate}
     \item Criar o socket ativo e associá-lo a um descritor;
-    \item Inicializar \texttt{select()};
     \item Enquanto está ativo:
     \begin{enumerate}
-        \item Checar novas conexões de clientes. Caso exceda o limite de conexões, exibir um erro e sair da aplicação.
+        \item Criar um processo filho.
+        \item Checar novas conexões de clientes.
+        \item Conectar com o cliente e imprimir o IP e a porta da conexão.
         \item Checar mensagens dos clientes ativos. Caso receba uma mensagem, imprimi-la e retornar o \textit{echo}, especificando o IP e o port do cliente.
         \item Caso um cliente se desconecte, fechar a conexão e desalocar o espaço do cliente.
     \end{enumerate}
@@ -98,75 +118,54 @@ Do mesmo modo que foi feito no cliente, foi criado um socket com a família da q
 
 Caso ocorra algum erro ou o socket não consiga aceitar nenhuma conexão, um erro é emitido e o programa é finalizado.
 
-\subsection{Inicializar \texttt{select()};}
-
-A inicialização se dá desligando todos os bits do file descriptor, e associando o bit ao socket adequado, como visto em sala de aula.
-
-\begin{lstlisting}[caption={Inicialização de conjunto de descritores}]
-FD_ZERO(&all_fds);
-FD_SET(s, &all_fds);
-\end{lstlisting}
-
 \subsection{Enquanto está ativo...}
-\subsubsection{Checar novas conexões de clientes. Caso exceda o limite de conexões, exibir um erro e sair da aplicação;}
-A função \textit{select()} é chamada, de modo a permitir o monitoramento dos file descriptors. Assim, é verificado se existe alguma conexão nova, feita por algum cliente, com a função \texttt{FD\_ISSET()}.
-
-Caso positivo, é realizada a conexão (\texttt{accept()}) a partir do registro do novo cliente ao servidor. As informações do cliente são coletadas (\texttt{getpeername()}) para manter a conexão posteriormente, e um novo file descriptor é adicionado.
-
-Senão, basta partir para o próximo passo.
+\subsection{Criar um processo filho}
+Utilizou-se a função \texttt{fork()} para criar um processo filho que verifica se uma nova conexão é estabelecida.
+\subsubsection{Checar novas conexões de clientes;}
 
 \begin{lstlisting}[caption={Estabelecimento de conexão a um novo cliente}, label=Algorithm]
-valid((new_s = accept(s, (struct sockaddr *)
-    &socket_addr, &len)), ..);
-..
-getpeername(new_s, (struct sockaddr *)&client, 
-    &client_size);
-inet_ntop(AF_INET, &(client.sin_addr), ip, 
-    INET_ADDRSTRLEN);
-..
-/* check available spot */
-for (i = 0; i < FD_SETSIZE; i++) {
-    if (!clients[i].used) {
-        clients[i].descriptor = new_s;
-        clients[i].port = ntohs(client.sin_port);
-        clients[i].used = true;
-        break;
-    }
-}
-if (i == FD_SETSIZE) 
-    error("Max. number of clients reached!");
-
-/* add new descriptor to our set */
-FD_SET(new_s, &all_fds);
+/* Connect to client and 
+show IP and Port of the connection */
+int32_t conn = accept(s, 
+    (struct sockaddr*) NULL, NULL);
+valid(conn, "Failed to establish a connection 
+from socket.\n");
 \end{lstlisting}
 
-    Observe que, caso o limite de conexões ao servidor seja atingido ou qualquer chamada de função tenha retornado um valor de erro, o programa é finalizado.
+    Do mesmo modo que nos projetos anteriores, checamos se o socket por uma nova conexão e conectamos.
+
+\subsection{Conectar com o cliente e imprimir o IP e a porta da conexão.}
+
+\begin{lstlisting}[caption={Recuperação de IP e Porta do cliente}, label=Algorithm]
+/* Connect to client and show 
+IP and Port of the connection */
+struct sockaddr_in client;
+socklen_t client_size = sizeof(client);
+
+int res = getpeername(conn, 
+(struct sockaddr *)&client, &client_size);
+
+char ip[INET_ADDRSTRLEN+1];
+inet_ntop(AF_INET, &(client.sin_addr), 
+ip, INET_ADDRSTRLEN);
+ip[INET_ADDRSTRLEN] = '\0';
+
+/* print text on screen */
+fprintf(stdout, "<- IP: s PORT: d Just Connected!\n", 
+ip, ntohs(client.sin_port));
+\end{lstlisting}
+
+Utilizando as funções acima, recuperamos o \texttt{peername} da conexão e imprimimos o IP e a Porta da conexão.
 
 \subsubsection{Checar mensagens dos clientes ativos. Caso receba uma mensagem, imprimi-la e retornar o \textit{echo}, especificando o IP e o port do cliente;}
 
-    Assim, para cada um dos clientes registrados e ativos, é verificado se o socket foi ativado de acordo com seu respectivo file descriptor.
+    Como temos vários processos filhos rodando concorrentemente o mesmo código, não houveram modificações nessa parte com relação ao projeto 1. Apenas imprimiu-se o IP de quem mandou
+    a mensagem ao servidor no terminal:
 
-    Caso positivo, a mensagem é capturada (\texttt{recv()}). Além disso, é verificado se a conexão foi encerrada - caso tenha ocorrido, o seu file descriptor é registrado como 'desligado' (\texttt{FD\_CLR()}) e mais um spot é liberado para que um cliente se conecte ao servidor. Se a conexão não foi encerrada, basta imprimir a mensagem recebida e enviá-la de volta ao cliente (\texttt{send()}), através da respectiva porta e IP.
-
-    Senão, basta partir para o próximo cliente, até que não esteja esperando mais nenhuma mensagem de descritor.
-
-    \begin{lstlisting}[caption={Recebimento de mensagens das conexões em aberto}, label=Algorithm]
-len = recv(sockfd, buff, sizeof(buff), 0);
-..
-if (!len) {
-    close(sockfd);
-    FD_CLR(sockfd, &all_fds);
-
-    clients[i].used = false;
-} else {
-    ..
-    /* print IP and port and send back to client */
-    if (send(new_s, buff, len, 0) == ERROR) {
-        fprintf(stdout, "..");
-        break;
-    }
-}
-    \end{lstlisting}
+\begin{lstlisting}[caption={Impressão da porta de quem manda a mensagem}, label=Algorithm]
+/* print message on screen and destination IP */
+fprintf(stdout, "<- %s\tSent To: %s\n", buff, ip);
+\end{lstlisting}
 
 \subsection{Comportamentos inesperados}
 
