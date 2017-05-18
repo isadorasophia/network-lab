@@ -71,7 +71,6 @@ int main() {
 
     /* wait for connections and do my job! */
     for ever {
-
         /* Create new child process */
         fork();
 
@@ -80,7 +79,6 @@ int main() {
         socklen_t client_size = sizeof(client);
         int32_t conn = accept(s, (struct sockaddr*) NULL, NULL);
         valid(conn, "Failed to establish a connection from socket.\n");
-
     
         int res = getpeername(conn, (struct sockaddr *)&client, &client_size);
 
@@ -105,15 +103,15 @@ int main() {
             /* set end on buff based on size */
             buff[len] = '\0';
 
-            /* print message on screen and Destination IP*/
-            fprintf(stdout, "<- %s   Sent To: %s\n", buff, ip);
+            /* print message on screen and destination IP */
+            fprintf(stdout, "<- %s\tSent To: %s\n", buff, ip);
 
             /* send back to client */
             if (send(conn, buff, len, 0) == ERROR) {
                 printf("Failed to send echo to client!\n");
                 break;
             }
-        }[pcnm bv©ç]
+        }
 
         close(conn);
     }
