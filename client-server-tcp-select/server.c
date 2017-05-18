@@ -176,7 +176,7 @@ int main() {
                         ip, clients[i].port);
 
                     /* send back to client */
-                    if (send(new_s, buff, len, 0) == ERROR) {
+                    if (send(sockfd, buff, len, 0) == ERROR) {
                         fprintf(stdout, "Failed to send echo to client!\n");
                         break;
                     }
