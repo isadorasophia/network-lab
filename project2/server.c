@@ -63,61 +63,57 @@ int check_collision(Client clients[], int s, Car cars[], int size) {
 
     /* Check for collision */
     for(i = 0; i < size; i++) {
-        if(!clients[i].used) continue;
-        if(i != s) {
-            Car target, source;
+        if(!clients[i].used || i == s) continue;
 
-            if(cars[s].vx == 0 && cars[i].vy == 0) {
-                target = cars[i];
-                source = cars[s];
-            }
-            else if (cars[s].vy == 0 && cars[i].vx == 0) {
-                target = cars[s];
-                source = cars[i];
-            }
-            else continue; // if they are going in the same direction
+        Car target, source;
 
-            int x = source.x, y = target.y, cond_s, cond_t;
-
-            // Check if already collided
-            if(source.vy > 0)
-                cond_s = source.y >= y && source.y <= y + source.size;
-            else
-                cond_s = source.y <= y && source.y >= y + -1 * source.size;
-
-            if(target.vx > 0)
-                cond_t = target.x >= x && target.x <= x + target.size;
-            else
-                cond_t = target.x <= x && target.x >= x + -1 * target.size;
-
-            fprintf(stdout, "*******  %d %d \n", cond_s, cond_t);
-            if(cond_s && cond_t)
-                return AMBULANCE;
-
-            // Check if they will collide
-
-            // If the other target is still, no need to check
-            if(target.vx == 0 && target.vy == 0 || source.vx == 0 && source.vy == 0) 
-                continue;
-
-            // Source
-            int dy = y - source.y;
-            time_t time_in_s = dy / source.vy;
-
-            dy = (y + sign(source.vy)*source.size) - source.y;
-            time_t time_out_s = dy / source.vy;
-
-            // Target
-            int dx = x - target.x;
-            time_t time_in_t = dx / target.vx;
-
-            dx = (x + sign(target.vx)*target.size) - target.x;
-            time_t time_out_t = dx / target.vx;
-
-            // Collided
-            if(time_in_s < time_out_t && time_in_t < time_out_s) 
-                return BREAK;
+        if(cars[s].vx == 0 && cars[i].vy == 0) {
+            target = cars[i];
+            source = cars[s];
         }
+        else if (cars[s].vy == 0 && cars[i].vx == 0) {
+            target = cars[s];
+            source = cars[i];
+        }
+        else continue; // if they are going in the same direction
+
+        int x = source.x, y = target.y, cond_s, cond_t;
+
+        // Check if already collided
+        if(source.vy > 0)
+            cond_s = source.y >= y && source.y <= y + source.size;
+        else
+            cond_s = source.y <= y && source.y >= y + -1 * source.size;
+
+        if(target.vx > 0)
+            cond_t = target.x >= x && target.x <= x + target.size;
+        else
+            cond_t = target.x <= x && target.x >= x + -1 * target.size;
+
+        if(cond_s && cond_t)
+            return AMBULANCE;
+
+        // Check if they will collide
+
+        // Source
+        int dy = y - source.y;
+        time_t time_in_s = source.vy == 0 ? 0 : dy / source.vy;
+
+        dy = (y + sign(source.vy)*source.size) - source.y;
+        time_t time_out_s = source.vy == 0 ? 0 : dy / source.vy;
+
+        // Target
+        int dx = x - target.x;
+        time_t time_in_t = target.vx == 0 ? 0 : dx / target.vx;
+
+        dx = (x + sign(target.vx)*target.size) - target.x;
+        time_t time_out_t = target.vx == 0 ? 0 : dx / target.vx;
+
+        // fprintf(stdout, "*******  %d %d %d %d \n", 
+        //                 time_in_s, time_out_s, time_in_t, time_out_t);
+        // Will collide
+        if(time_in_s <= time_out_t && time_in_t <= time_out_s) 
+            return BREAK;
     }
 
     return ACCELERATE;
