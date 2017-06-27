@@ -32,10 +32,16 @@ void welcome() {
 ________________[_]_[_]_[_]________/_]_[_\\________________\n";
 
     fprintf(stdout, "%s\n-> Welcome to the server side of our application! \n\
-    Please enjoy as you watch our client contacting with us!\n\
+    Please enjoy as you watch the cars explode!!\n\
     We are currently available at: localhost.\n", 
             art);
 }
+
+typedef struct {
+    int descriptor;
+    int port;
+    int used;
+} Client;
 
 int sign(int a) {
     if(a > 0)  return 1;
@@ -44,7 +50,7 @@ int sign(int a) {
 }
 
 /* Check for car collision and return command */
-int check_collision(int s, Car cars[], int size) {
+int check_collision(Client clients[], int s, Car cars[], int size) {
     int command;
     int i, j;
 
@@ -57,26 +63,65 @@ int check_collision(int s, Car cars[], int size) {
 
     /* Check for collision */
     for(i = 0; i < size; i++) {
+        if(!clients[i].used) continue;
         if(i != s) {
-            Car car = cars[i];
-            Car source = cars[s];
-            if(source.vx == 0 && car.vy == 0 ) {
+            Car target, source;
 
+            if(cars[s].vx == 0 && cars[i].vy == 0) {
+                target = cars[i];
+                source = cars[s];
             }
-            else if (source.vy == 0 && car.vx == 0) {
+            else if (cars[s].vy == 0 && cars[i].vx == 0) {
+                target = cars[s];
+                source = cars[i];
+            }
+            else continue; // if they are going in the same direction
 
-            }
+            int x = source.x, y = target.y, cond_s, cond_t;
+
+            // Check if already collided
+            if(source.vy > 0)
+                cond_s = source.y >= y && source.y <= y + source.size;
+            else
+                cond_s = source.y <= y && source.y >= y + -1 * source.size;
+
+            if(target.vx > 0)
+                cond_t = target.x >= x && target.x <= x + target.size;
+            else
+                cond_t = target.x <= x && target.x >= x + -1 * target.size;
+
+            fprintf(stdout, "*******  %d %d \n", cond_s, cond_t);
+            if(cond_s && cond_t)
+                return AMBULANCE;
+
+            // Check if they will collide
+
+            // If the other target is still, no need to check
+            if(target.vx == 0 && target.vy == 0 || source.vx == 0 && source.vy == 0) 
+                continue;
+
+            // Source
+            int dy = y - source.y;
+            time_t time_in_s = dy / source.vy;
+
+            dy = (y + sign(source.vy)*source.size) - source.y;
+            time_t time_out_s = dy / source.vy;
+
+            // Target
+            int dx = x - target.x;
+            time_t time_in_t = dx / target.vx;
+
+            dx = (x + sign(target.vx)*target.size) - target.x;
+            time_t time_out_t = dx / target.vx;
+
+            // Collided
+            if(time_in_s < time_out_t && time_in_t < time_out_s) 
+                return BREAK;
         }
     }
 
-    return BREAK;
+    return ACCELERATE;
 }
-
-typedef struct {
-    int descriptor;
-    int port;
-    int used;
-} Client;
 
 int main() {
     struct sockaddr_in socket_addr;
@@ -208,7 +253,7 @@ int main() {
                     clients[i].used = false;
                 } else {
 
-                    int command = check_collision(i, cars, total_clients);
+                    int command = check_collision(clients, i, cars, total_clients);
 
                     /* print message on screen and Destination IP*/
                     fprintf(stdout, "<- %d\tsent to IP: %s at port: %d\n", command, 

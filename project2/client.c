@@ -28,7 +28,7 @@ void welcome() {
 ________________[_]_[_]_[_]________/_]_[_\\________________\n";
 
     fprintf(stdout, "%s\n-> Welcome to the client side of our application! \n\
-    You should type for messages and our server will get answers for you!\n", 
+    Watch me collide with other cars and die!\n", 
             art);
 }
 
@@ -101,27 +101,26 @@ int main(int argc, char *argv[])
     scanf("%d %d %ld", &my_car.vx, &my_car.vy, &wait_time);
 
     int32_t counter = 0;
-    current_time    = time(0);
-    update_time     = time(0);
-    send_time       = time(0);
+    time(&current_time);
+    time(&update_time);
+    time(&send_time);
     for ever {
         // Update parameters
         my_car.cur_time = time(0);
         if(time_passed(update_time) >= 1) {
             update_car(&my_car);
-            update_time = time(0);
+            time(&update_time);
         }
-        if(time_passed(current_time) >= wait_time) {
-            current_time = time(0);
-            scanf("%d %d %ld", &my_car.vx, &my_car.vy, &wait_time);
+        if(inputs_read < n_inputs && time_passed(current_time) >= wait_time) {
             inputs_read++;
 
-            if(inputs_read >= n_inputs) break;
+            time(&current_time);
+            scanf("%d %d %ld", &my_car.vx, &my_car.vy, &wait_time);
         }
 
         // After X seconds, send information
-        if(time_passed(send_time) > 1) {
-            send_time = time(0);
+        if(time_passed(send_time) >= 1) {
+            time(&send_time);
 
             /* send message */
             valid(send(s, (char *)&my_car, sizeof(my_car), 0),
@@ -137,6 +136,7 @@ int main(int argc, char *argv[])
                 break;
             }
 
+            fprintf(stdout, "-> Time: %ld, X = %d, Y = %d, VX = %d, VY = %d\n", time(0), my_car.x, my_car.y, my_car.vx, my_car.vy);
 
             if(command == BREAK) {
                 my_car.vx = 0;
@@ -145,7 +145,7 @@ int main(int argc, char *argv[])
                 /* print response on screen */
                 fprintf(stdout, "<- %s\n", "*TRYING NOT TO DIE*");
             }
-            else if(command = ACCELERATE) {
+            else if(command == ACCELERATE) {
                 fprintf(stdout, "<- %s\n", "Everything is ok");   
             }
             else if(command == AMBULANCE) {
@@ -153,6 +153,8 @@ int main(int argc, char *argv[])
                 my_car.vy = 0;
 
                 fprintf(stdout, "<- %s\n", "*DED*");
+
+                break;
             }
         }
 

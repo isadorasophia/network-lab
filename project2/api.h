@@ -20,6 +20,8 @@
 #define BREAK       1
 #define ACCELERATE  2
 #define AMBULANCE   3
+#define HORIZONTAL	4
+#define VERTICAL	5
 
 #define ERROR -1
 #define ever (;;)
@@ -30,7 +32,7 @@
 
 typedef struct {
 	time_t cur_time;
-    int size, x, y, vx, vy;
+    int facing, size, x, y, vx, vy;
 } Car;
 
 void update_car(Car *car) {
