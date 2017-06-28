@@ -119,6 +119,7 @@ int main(int argc, char *argv[])
     /* get first input */
     Car my_car;
     int n_inputs = 0, inputs_read = 1;
+    int vx, vy;
 
     /* technical */
     READ("# of changes", n_inputs)
@@ -127,8 +128,11 @@ int main(int argc, char *argv[])
     READ("Position x", my_car.x)
     READ("Position y", my_car.y)
 
-    READ("Velocity+direction x", my_car.vx)
-    READ("Velocity+direction y", my_car.vy)
+    READ("Velocity+direction x", vx)
+    READ("Velocity+direction y", vy)
+
+    my_car.vx = vx;
+    my_car.vy = vy;
 
     my_car.dirx = sign(my_car.vx);
     my_car.diry = sign(my_car.vy);
@@ -154,6 +158,8 @@ int main(int argc, char *argv[])
     clock_gettime(CLOCK_REALTIME, &last_sent_security);
     clock_gettime(CLOCK_REALTIME, &last_sent_other);
 
+    Car receive_car;
+
     for ever {
         /* update parameters! */
         clock_gettime(CLOCK_REALTIME, &my_car.cur_time);
@@ -164,15 +170,15 @@ int main(int argc, char *argv[])
 
                 inputs_read++;
 
-                READ("Velocity x", my_car.vx)
-                READ("Velocity y", my_car.vy)
+                READ("Velocity x", vx)
+                READ("Velocity y", vy)
                 READS("# of time before update (s)", update_counter)
 
                 fprintf(stdout, "\t[[You got %d updates left!]]\n", n_inputs-inputs_read);
             }
             else {
-                my_car.vx = my_car.dirx * DEFAULT_VEL;
-                my_car.vy = my_car.diry * DEFAULT_VEL;
+                vx = my_car.dirx * DEFAULT_VEL;
+                vy = my_car.diry * DEFAULT_VEL;
             }
         }
 
@@ -180,8 +186,9 @@ int main(int argc, char *argv[])
 
         if (time_passed(sync_t, my_car.cur_time) >= CLOCK) {
             sync_t = my_car.cur_time;
-
             update_car(&my_car);
+
+            my_car.break_time = min(my_car.break_time-CLOCK, 0);
         }
 
         /* check for security packets */
@@ -195,13 +202,17 @@ int main(int argc, char *argv[])
 
             /* receive command */
             int command;
-            int32_t len = recv(s, &command, sizeof(int), 0);
+            int32_t len = recv(s, &receive_car, sizeof(Car), 0);
             valid(len, "Failed to receive any messages from my connection!\n");
 
             if (len == 0) {
                 fprintf(stdout, "Connection was closed!\n");
                 break;
             }
+
+            command = receive_car.command;
+            if(my_car.break_time != receive_car.break_time)
+                my_car.break_time = receive_car.break_time;
 
             fprintf(stdout, "-> Time: %lds, X = %d, Y = %d, VX = %d, VY = %d\n", 
                 MILLISEC(last_sent_security), my_car.x, my_car.y, my_car.vx, my_car.vy);
@@ -215,6 +226,8 @@ int main(int argc, char *argv[])
 
             } else if (command == ACCELERATE) {
                 fprintf(stdout, "<- %s\n", "Everything is ok");
+                my_car.vx = vx;
+                my_car.vy = vy;
 
             } else if (command == AMBULANCE) {
                 my_car.vx = 0;
@@ -236,8 +249,7 @@ int main(int argc, char *argv[])
                     "Failed to send any message from my connection!\n");
 
             /* receive command */
-            int command;
-            int32_t len = recv(s, &command, sizeof(int), 0);
+            int32_t len = recv(s, &receive_car, sizeof(Car), 0);
             valid(len, "Failed to receive any messages from my connection!\n");
 
             if (len == 0) {

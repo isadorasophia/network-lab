@@ -72,7 +72,6 @@ typedef struct {
 } Client;
 
 #define DIVZERO(d, q) (q == 0 ? 0 : d/q)
-#define min(x, y) ((x) < (y) ? (x) : (y))
 
 /* * return time passed since NOW, in millissec * */
 int64_t since_now(struct timespec t) {
@@ -90,9 +89,14 @@ void dummy() {
 }
 
 /* Check for car collision and return command */
-int check_collision(Client clients[], int *car1, int *car2, Car cars[], int size) {
+int check_collision(Client clients[], int *car1, int *car2, int s, Car cars[], int size) {
     int command;
     int i, j;
+
+    if(cars[s].break_time > 0) {
+        *car1 = i;
+        return BREAK;
+    }
 
     /* Update cars */
     for (i = 0; i < size; i++) {
@@ -108,11 +112,11 @@ int check_collision(Client clients[], int *car1, int *car2, Car cars[], int size
 
             Car target, source;
 
-            if (cars[j].vx == 0 && cars[i].vy == 0) {
+            if (cars[j].vy != 0 && cars[i].vx != 0) {
                 target = cars[i];
                 source = cars[j];
 
-            } else if (cars[j].vy == 0 && cars[i].vx == 0) {
+            } else if (cars[j].vx != 0 && cars[i].vy != 0) {
                 target = cars[j];
                 source = cars[i];
 
@@ -164,6 +168,7 @@ int check_collision(Client clients[], int *car1, int *car2, Car cars[], int size
             // will collide!
             if (time_in_s <= time_out_t && time_in_t <= time_out_s) {
                 *car1 = i;
+                cars[i].break_time = 1000* max(abs(time_in_t - time_out_t), abs(time_in_s - time_out_s));
                 return BREAK;
             }
 
@@ -187,6 +192,7 @@ int main() {
 
     // Global var `stdscr` is created by the call to `initscr()`
     getmaxyx(stdscr, max_y, max_x);
+    int center_x = max_x / 2, center_y = max_y / 2;
 
     // Boring stuff
     struct sockaddr_in socket_addr;
@@ -335,31 +341,25 @@ int main() {
                     int command;
                     int car1 = i, car2 = -1;
                     if (cars[i].type == SECURITY) {
-                        command = check_collision(clients, &car1, &car2, cars, total_clients);
+                        command = check_collision(clients, &car1, &car2, i, cars, total_clients);
                     } else {
                         command = 42;
                         dummy();
                     }
 
-                    /* print message on screen and Destination IP */
-                    // fprintf(stdout, "<- %d\tsent to IP: %s at port: %d\n", command, 
-                    //     ip, clients[car1].port);
+                    cars[i].command = command;
 
                     /* send back to client */
-                    if (send(clients[i].descriptor, (char *)&command, sizeof(int), 0) == ERROR) {
-                        //fprintf(stdout, "Failed to send echo to client!\n");
+                    if (send(clients[i].descriptor, (char *)&cars[i], sizeof(Car), 0) == ERROR) {
                         break;
                     }
 
                     if(car2 != -1) {
-                        fprintf(stdout, "command: %d\n", command);
-                        /* print message on screen and Destination IP */
-                        // fprintf(stdout, "<- %d\tsent to IP: %s at port: %d\n", command, 
-                        //     ip, clients[car2].port);
+                        cars[car2].command = command;
 
                         /* send back to client */
-                        if (send(clients[car2].descriptor, (char *)&command, sizeof(int), 0) == ERROR) {
-                            //fprintf(stdout, "Failed to send echo to client!\n");
+                        if (send(clients[car2].descriptor, (char *)&cars[car2], sizeof(Car), 0) == ERROR) {
+                            
                             break;
                         }
                     }

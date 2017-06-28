@@ -33,12 +33,16 @@
 #define false 0
 #define bool int
 
+#define min(x, y) ((x) < (y) ? (x) : (y))
+#define max(x, y) ((x) > (y) ? (x) : (y))
+
 typedef enum { LOW=9, HIGH=100 } Latency;   /* latency of each packet */
 typedef enum { SECURITY=1, ENTERTAINMENT=2, COMFORT=3, OTHER=4 } Type;
 
 typedef struct {
 	struct timespec cur_time;
-    int size, x, y, vx, vy, dirx, diry;
+	int64_t break_time;
+    int command, size, x, y, vx, vy, dirx, diry;
 
     Type type;
 } Car;
@@ -47,6 +51,10 @@ int sign(int a) {
     if (a > 0)  return 1;
     if (a == 0) return 0;
     if (a < 0)  return -1;
+}
+
+int abs(int a) {
+	return sign(a) * a;
 }
 
 void update_car(Car *car) {
