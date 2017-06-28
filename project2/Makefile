@@ -5,7 +5,7 @@ CFLAGS		=
 MAKEFLAGS   = --no-print-directory
 
 %.c:
-	$(CC) $(CFLAGS) $@.c -o $@
+	$(CC) $(CFLAGS) $@.c -o $@ -lm
 
 all:
 	@make --no-print-directory clean

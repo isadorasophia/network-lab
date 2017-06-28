@@ -49,6 +49,14 @@ int sign(int a) {
     if(a < 0)  return -1;
 }
 
+/* * return time passed since NOW, in millissec * */
+int64_t since_now(struct timespec t) {
+    struct timespec cur;
+    clock_gettime(CLOCK_REALTIME, &cur);
+
+    return cur.tv_sec - t.tv_sec;
+}
+
 /* Check for car collision and return command */
 int check_collision(Client clients[], int s, Car cars[], int size) {
     int command;
@@ -56,8 +64,9 @@ int check_collision(Client clients[], int s, Car cars[], int size) {
 
     /* Update cars */
     for(i = 0; i < size; i++) {
-        time_t t = time(0) - cars[i].cur_time;
-        for(j = 0; j < t; j++)
+        int64_t elapsed = since_now(cars[i].cur_time);
+
+        for(j = 0; j < elapsed; j++)
             update_car(&cars[i]);
     }
 
@@ -97,17 +106,17 @@ int check_collision(Client clients[], int s, Car cars[], int size) {
 
         // Source
         int dy = y - source.y;
-        time_t time_in_s = source.vy == 0 ? 0 : dy / source.vy;
+        int64_t time_in_s = source.vy == 0 ? 0 : dy / source.vy;
 
         dy = (y + sign(source.vy)*source.size) - source.y;
-        time_t time_out_s = source.vy == 0 ? 0 : dy / source.vy;
+        int64_t time_out_s = source.vy == 0 ? 0 : dy / source.vy;
 
         // Target
         int dx = x - target.x;
-        time_t time_in_t = target.vx == 0 ? 0 : dx / target.vx;
+        int64_t time_in_t = target.vx == 0 ? 0 : dx / target.vx;
 
         dx = (x + sign(target.vx)*target.size) - target.x;
-        time_t time_out_t = target.vx == 0 ? 0 : dx / target.vx;
+        int64_t time_out_t = target.vx == 0 ? 0 : dx / target.vx;
 
         // fprintf(stdout, "*******  %d %d %d %d \n", 
         //                 time_in_s, time_out_s, time_in_t, time_out_t);

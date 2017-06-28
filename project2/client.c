@@ -11,6 +11,20 @@
 
 #define SERVER_PORT 12345
 
+/* * macros! * */
+#define READ(str, res)  {                             \
+                            printf("\t-> %s:: ", str);\
+                            scanf("%d", &res);        \
+                        }
+#define READL(str, res) {                             \
+                            printf("\t-> %s:: ", str);\
+                            scanf("%ld", &res);       \
+                            res = res * 1000;         \
+                        }
+
+#define MILLISEC(d) (int64_t)(d.tv_sec*1000 + d.tv_nsec / 1.0e6)
+
+/* * helpers! * */
 void welcome() {
     char* art = 
 "                                     /~\\ \n\
@@ -36,13 +50,16 @@ void wait() {
     fprintf(stdout, "-> ");
 }
 
-time_t time_passed(time_t t) {
-    return time(0) - t;
+/* * return time passed since t, in millissec * */
+int64_t time_passed(struct timespec start, struct timespec end) {
+    return MILLISEC(end) - MILLISEC(start);
 }
 
 int main(int argc, char *argv[])
 {
-    time_t current_time, wait_time, update_time, send_time;
+    int64_t update_counter;
+    struct timespec update_t, sync_t, last_sent;
+
     struct hostent *host_address;
     char *host;
 
@@ -80,47 +97,70 @@ int main(int argc, char *argv[])
                             sizeof(socket_addr)), 
             "Failed to establish a connection from socket.\n");
 
-    /* Get socket IP and Port and show to client */
+    /* get socket IP and Port and show to client */
     struct sockaddr_in client;
     socklen_t client_size = sizeof(client);
 
     int res = getsockname(s, (struct sockaddr *)&client, &client_size);
 
+    /* get first input */
+    Car my_car;
+    int n_inputs, inputs_read = 1;
+
+    READ("Infraestructure (1 <=> low ou 2 <=> high)", my_car.infra)
+
+    READ("# of changes", n_inputs)
+    READL("# of time before update (s)", update_counter)
+
+    READ("Car length", my_car.size)
+    READ("Position x", my_car.x)
+    READ("Position y", my_car.y)
+
+    READ("Velocity+direction x", my_car.vx)
+    READ("Velocity+direction y", my_car.vy)
+
+    /* * connect and go! * */ 
     char ip[INET_ADDRSTRLEN+1];
     inet_ntop(AF_INET, &(client.sin_addr), ip, INET_ADDRSTRLEN);
     ip[INET_ADDRSTRLEN] = '\0';
 
-    /* print text on screen */
-    fprintf(stdout, "<- IP: %s PORT: %d Connected!\n", ip, ntohs(client.sin_port));
+    fprintf(stdout, "<- IP: %s PORT: %d Connected!\n", ip, 
+        ntohs(client.sin_port));
 
-    /* Get first input */
-    Car my_car;
-    int n_inputs, inputs_read = 1;
-
-    scanf("%d %d %d %d", &n_inputs, &my_car.size, &my_car.x, &my_car.y);
-    scanf("%d %d %ld", &my_car.vx, &my_car.vy, &wait_time);
-
+    /* set our timings */
     int32_t counter = 0;
-    time(&current_time);
-    time(&update_time);
-    time(&send_time);
+    clock_gettime(CLOCK_REALTIME, &sync_t);
+    clock_gettime(CLOCK_REALTIME, &last_sent);
+    clock_gettime(CLOCK_REALTIME, &update_t);
+
     for ever {
-        // Update parameters
-        my_car.cur_time = time(0);
-        if(time_passed(update_time) >= 1) {
-            update_car(&my_car);
-            time(&update_time);
-        }
-        if(inputs_read < n_inputs && time_passed(current_time) >= wait_time) {
+        /* update parameters! */
+        clock_gettime(CLOCK_REALTIME, &my_car.cur_time);
+
+        if (inputs_read < n_inputs && 
+                time_passed(update_t, my_car.cur_time) >= update_counter) {
+            update_t = my_car.cur_time;
+
             inputs_read++;
 
-            time(&current_time);
-            scanf("%d %d %ld", &my_car.vx, &my_car.vy, &wait_time);
+            READ("Velocity x", my_car.vx)
+            READ("Velocity y", my_car.vy)
+            READL("# of time before update (s)", update_counter)
+
+            fprintf(stdout, "\t!! You got %d updates left!", inputs_read);
         }
 
-        // After X seconds, send information
-        if(time_passed(send_time) >= 1) {
-            time(&send_time);
+        /** clock syncs **/
+
+        if (time_passed(sync_t, my_car.cur_time) >= CLOCK) {
+            sync_t = my_car.cur_time;
+
+            update_car(&my_car);
+        }
+
+        /* after X seconds, send information */
+        if (time_passed(last_sent, my_car.cur_time) >= CLOCK) {
+            last_sent = my_car.cur_time;
 
             /* send message */
             valid(send(s, (char *)&my_car, sizeof(my_car), 0),
@@ -136,19 +176,20 @@ int main(int argc, char *argv[])
                 break;
             }
 
-            fprintf(stdout, "-> Time: %ld, X = %d, Y = %d, VX = %d, VY = %d\n", time(0), my_car.x, my_car.y, my_car.vx, my_car.vy);
+            fprintf(stdout, "-> Time: %ld, X = %d, Y = %d, VX = %d, VY = %d\n", 
+                MILLISEC(last_sent), my_car.x, my_car.y, my_car.vx, my_car.vy);
 
-            if(command == BREAK) {
+            if (command == BREAK) {
                 my_car.vx = 0;
                 my_car.vy = 0;
 
                 /* print response on screen */
                 fprintf(stdout, "<- %s\n", "*TRYING NOT TO DIE*");
-            }
-            else if(command == ACCELERATE) {
-                fprintf(stdout, "<- %s\n", "Everything is ok");   
-            }
-            else if(command == AMBULANCE) {
+
+            } else if (command == ACCELERATE) {
+                fprintf(stdout, "<- %s\n", "Everything is ok");
+
+            } else if (command == AMBULANCE) {
                 my_car.vx = 0;
                 my_car.vy = 0;
 
@@ -160,6 +201,8 @@ int main(int argc, char *argv[])
 
     }
 
+    /* clean up our mess */
     close(s);
+
     return 0;
 }

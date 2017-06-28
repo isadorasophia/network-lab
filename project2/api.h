@@ -23,6 +23,12 @@
 #define HORIZONTAL	4
 #define VERTICAL	5
 
+/* clocks */
+#define CLOCK         1000
+
+#define LOW_LATENCY   10
+#define HIGH_LATENCY  100
+
 #define ERROR -1
 #define ever (;;)
 
@@ -30,9 +36,12 @@
 #define false 0
 #define bool int
 
+typedef enum { LOW=1, HIGH=2 } Infra;
+
 typedef struct {
-	time_t cur_time;
+	struct timespec cur_time;
     int facing, size, x, y, vx, vy;
+    int infra;
 } Car;
 
 void update_car(Car *car) {
