@@ -38,10 +38,16 @@ typedef enum { SECURITY=1, ENTERTAINMENT=2, COMFORT=3, OTHER=4 } Type;
 
 typedef struct {
 	struct timespec cur_time;
-    int size, x, y, vx, vy;
+    int size, x, y, vx, vy, dirx, diry;
 
     Type type;
 } Car;
+
+int sign(int a) {
+    if (a > 0)  return 1;
+    if (a == 0) return 0;
+    if (a < 0)  return -1;
+}
 
 void update_car(Car *car) {
     car->x += car->vx;

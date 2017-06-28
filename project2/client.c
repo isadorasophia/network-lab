@@ -30,6 +30,8 @@
 
 #define MILLISEC(d) (int64_t)(d.tv_sec*1000 + d.tv_nsec / 1.0e6)
 
+#define DEFAULT_VEL 1
+
 /* * helpers! * */
 void welcome() {
     char* art = 
@@ -69,7 +71,7 @@ int latency(Type type) {
 int main(int argc, char *argv[])
 {
     int64_t update_counter = 0;
-    struct timespec update_t, sync_t, last_sent_security, last_sent_other;
+    struct timespec update_t, sync_t, last_sent_security, last_sent_other, wake_up;
 
     struct hostent *host_address;
     char *host;
@@ -128,6 +130,10 @@ int main(int argc, char *argv[])
     READ("Velocity+direction x", my_car.vx)
     READ("Velocity+direction y", my_car.vy)
 
+    my_car.dirx = sign(my_car.vx);
+    my_car.diry = sign(my_car.vy);
+
+
     /* if we want to make changes... */
     if (n_inputs > 0) {
         READS("# of time before update (s)", update_counter);
@@ -151,19 +157,23 @@ int main(int argc, char *argv[])
     for ever {
         /* update parameters! */
         clock_gettime(CLOCK_REALTIME, &my_car.cur_time);
-        //fprintf(stdout, "%ld\n", my_car.cur_time);
 
-        if (inputs_read < n_inputs && 
-                time_passed(update_t, my_car.cur_time) >= update_counter) {
+        if(time_passed(update_t, my_car.cur_time) >= update_counter) {
             update_t = my_car.cur_time;
+            if (inputs_read < n_inputs) {
 
-            inputs_read++;
+                inputs_read++;
 
-            READ("Velocity x", my_car.vx)
-            READ("Velocity y", my_car.vy)
-            READS("# of time before update (s)", update_counter)
+                READ("Velocity x", my_car.vx)
+                READ("Velocity y", my_car.vy)
+                READS("# of time before update (s)", update_counter)
 
-            fprintf(stdout, "\t[[You got %d updates left!]]\n", n_inputs-inputs_read);
+                fprintf(stdout, "\t[[You got %d updates left!]]\n", n_inputs-inputs_read);
+            }
+            else {
+                my_car.vx = my_car.dirx * DEFAULT_VEL;
+                my_car.vy = my_car.diry * DEFAULT_VEL;
+            }
         }
 
         /** clock syncs **/

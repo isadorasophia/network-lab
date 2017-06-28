@@ -71,12 +71,6 @@ typedef struct {
     int used;
 } Client;
 
-int sign(int a) {
-    if (a > 0)  return 1;
-    if (a == 0) return 0;
-    if (a < 0)  return -1;
-}
-
 #define DIVZERO(d, q) (q == 0 ? 0 : d/q)
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
@@ -198,7 +192,7 @@ int main() {
     struct sockaddr_in socket_addr;
     char buff[MAX_LINE];
     unsigned int len;
-    int i, s, new_s, sockfd, total_clients, maxfd, nready;
+    int i, j, s, new_s, sockfd, total_clients, maxfd, nready;
     Client clients[FD_SETSIZE];
     Car cars[FD_SETSIZE];
     fd_set all_fds, new_set;
@@ -247,10 +241,12 @@ int main() {
         clear();
 
         mvprintw(0, 0, road);
-        //mvprintw(cars[0].y, cars[0].x, "o");
         for(i = 0; i <= total_clients; i++) {
-            //if (!clients[i].used) continue;
-            mvprintw(cars[i].y + 11, cars[i].x*2 + 25, "o");
+            if (!clients[i].used) continue;
+            for(j = 0; j < cars[i].size; j++) {
+
+                mvprintw(cars[i].y - j * sign(cars[i].diry) + 11, cars[i].x*2 - 2 * j * sign(cars[i].dirx) + 25, "o");
+            }
         }
         refresh();
 
