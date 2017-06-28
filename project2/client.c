@@ -116,15 +116,10 @@ int main(int argc, char *argv[])
 
     /* get first input */
     Car my_car;
-    int n_inputs = 0, inputs_read = 0;
+    int n_inputs = 0, inputs_read = 1;
 
     /* technical */
     READ("# of changes", n_inputs)
-
-    /* if we want to make changes... */
-    if (n_inputs > 0) {
-        READS("# of time before update (s)", update_counter);
-    }
 
     READ("Car length", my_car.size)
     READ("Position x", my_car.x)
@@ -132,6 +127,11 @@ int main(int argc, char *argv[])
 
     READ("Velocity+direction x", my_car.vx)
     READ("Velocity+direction y", my_car.vy)
+
+    /* if we want to make changes... */
+    if (n_inputs > 0) {
+        READS("# of time before update (s)", update_counter);
+    }
 
     /* * connect and go! * */ 
     char ip[INET_ADDRSTRLEN+1];
@@ -151,6 +151,7 @@ int main(int argc, char *argv[])
     for ever {
         /* update parameters! */
         clock_gettime(CLOCK_REALTIME, &my_car.cur_time);
+        //fprintf(stdout, "%ld\n", my_car.cur_time);
 
         if (inputs_read < n_inputs && 
                 time_passed(update_t, my_car.cur_time) >= update_counter) {
@@ -213,6 +214,8 @@ int main(int argc, char *argv[])
 
                 break;
             }
+        }
+        else {
         }
 
         /* some other useless updates */

@@ -68,72 +68,84 @@ void dummy() {
 }
 
 /* Check for car collision and return command */
-int check_collision(Client clients[], int s, Car cars[], int size) {
+int check_collision(Client clients[], int *car1, int *car2, Car cars[], int size) {
     int command;
     int i, j;
 
     /* Update cars */
     for (i = 0; i < size; i++) {
         int64_t elapsed = since_now(cars[i].cur_time);
+        clock_gettime(CLOCK_REALTIME, &cars[i].cur_time);
         update_car_n(&cars[i], elapsed);
     }
 
     /* Check for collision */
-    for(i = 0; i < size; i++) {
-        if (!clients[i].used || i == s) continue;
+    for(i = 0; i <= size; i++) {
+        for(j = i + 1; j <= size; j++) {
+            if (!clients[i].used || !clients[j].used) continue;
 
-        Car target, source;
+            Car target, source;
 
-        if (cars[s].vx == 0 && cars[i].vy == 0) {
-            target = cars[i];
-            source = cars[s];
+            if (cars[j].vx == 0 && cars[i].vy == 0) {
+                target = cars[i];
+                source = cars[j];
 
-        } else if (cars[s].vy == 0 && cars[i].vx == 0) {
-            target = cars[s];
-            source = cars[i];
+            } else if (cars[j].vy == 0 && cars[i].vx == 0) {
+                target = cars[j];
+                source = cars[i];
 
-        } else continue; // if they are going in the same direction...
+            } else continue; // if they are going in the same direction...
 
-        int x = source.x, 
-            y = target.y, 
-            cond_s, cond_t;
+            int x = source.x, 
+                y = target.y, 
+                cond_s, cond_t;
 
-        // check if already collided!
-        if (source.vy > 0)
-            cond_s = source.y >= y && source.y <= y + source.size;
-        else
-            cond_s = source.y <= y && source.y >= y + -1 * source.size;
+            // check if already collided!
+            if (source.vy > 0)
+                cond_s = source.y >= y && source.y <= y + source.size;
+            else
+                cond_s = source.y <= y && source.y >= y + -1 * source.size;
 
-        if (target.vx > 0)
-            cond_t = target.x >= x && target.x <= x + target.size;
-        else
-            cond_t = target.x <= x && target.x >= x + -1 * target.size;
+            if (target.vx > 0)
+                cond_t = target.x >= x && target.x <= x + target.size;
+            else
+                cond_t = target.x <= x && target.x >= x + -1 * target.size;
 
-        if (cond_s && cond_t)
-            return AMBULANCE;
+            if (cond_s && cond_t) {
+                *car1 = i;
+                *car2 = j;
+                return AMBULANCE;
+            }
 
-        // check if they will collide...
+            if(source.vx == 0 && source.vy == 0 ||
+               target.vx == 0 && target.vy == 0)
+                continue;
 
-        // source
-        int dy = y - source.y;
-        int64_t time_in_s = DIVZERO(dy, source.vy);
+            // check if they will collide...
 
-        dy = (y + sign(source.vy)*source.size) - source.y;
-        int64_t time_out_s = DIVZERO(dy, source.vy);
+            // source
+            int dy = y - source.y;
+            int64_t time_in_s = DIVZERO(dy, source.vy);
 
-        // target
-        int dx = x - target.x;
-        int64_t time_in_t = DIVZERO(dx, source.vx);
+            dy = (y + sign(source.vy)*source.size) - source.y;
+            int64_t time_out_s = DIVZERO(dy, source.vy);
 
-        dx = (x + sign(target.vx)*target.size) - target.x;
-        int64_t time_out_t = DIVZERO(dx, source.vx);
+            // target
+            int dx = x - target.x;
+            int64_t time_in_t = DIVZERO(dx, target.vx);
 
-        // fprintf(stdout, "*******  %d %d %d %d \n", 
-        //                 time_in_s, time_out_s, time_in_t, time_out_t);
+            dx = (x + sign(target.vx)*target.size) - target.x;
+            int64_t time_out_t = DIVZERO(dx, target.vx);
 
-        // will collide!
-        if (time_in_s <= time_out_t && time_in_t <= time_out_s) 
-            return BREAK;
+            if(time_out_t < 0 || time_out_s < 0) continue;
+
+            // will collide!
+            if (time_in_s <= time_out_t && time_in_t <= time_out_s) {
+                *car1 = i;
+                return BREAK;
+            }
+
+        }
     }
 
     return ACCELERATE;
@@ -271,21 +283,34 @@ int main() {
                     clients[i].used = false;
                 } else {
                     int command;
+                    int car1 = i, car2 = -1;
                     if (cars[i].type == SECURITY) {
-                        command = check_collision(clients, i, cars, total_clients);
+                        command = check_collision(clients, &car1, &car2, cars, total_clients);
                     } else {
                         command = 42;
                         dummy();
                     }
 
                     /* print message on screen and Destination IP */
-                    fprintf(stdout, "<- %d\tsent to IP: %s at port: %d\n", command, 
-                        ip, clients[i].port);
+                    // fprintf(stdout, "<- %d\tsent to IP: %s at port: %d\n", command, 
+                    //     ip, clients[car1].port);
 
                     /* send back to client */
-                    if (send(sockfd, (char *)&command, sizeof(int), 0) == ERROR) {
+                    if (send(clients[i].descriptor, (char *)&command, sizeof(int), 0) == ERROR) {
                         fprintf(stdout, "Failed to send echo to client!\n");
                         break;
+                    }
+
+                    if(car2 != -1) {
+                        /* print message on screen and Destination IP */
+                        // fprintf(stdout, "<- %d\tsent to IP: %s at port: %d\n", command, 
+                        //     ip, clients[car2].port);
+
+                        /* send back to client */
+                        if (send(clients[car2].descriptor, (char *)&command, sizeof(int), 0) == ERROR) {
+                            fprintf(stdout, "Failed to send echo to client!\n");
+                            break;
+                        }
                     }
                 }
 
