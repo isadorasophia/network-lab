@@ -1,27 +1,37 @@
-#define _POSIX_C_SOURCE 200809L
+#include <ncurses.h>
+#include <unistd.h>
 
-#include <inttypes.h>
-#include <math.h>
-#include <stdio.h>
-#include <time.h>
+#define DELAY 30000
 
-void print_current_time_with_ms (void)
-{
-    long            ms; // Milliseconds
-    time_t          s;  // Seconds
-    struct timespec spec;
+int main(int argc, char *argv[]) {
+    int x = 0, y = 0;
+    int max_y = 0, max_x = 0;
+    int next_x = 0;
+    int direction = 1;
 
-    clock_gettime(CLOCK_REALTIME, &spec);
+    initscr();
+    noecho();
+    curs_set(FALSE);
 
-    s  = spec.tv_sec;
-    ms = spec.tv_nsec / 1.0e6; // Convert nanoseconds to milliseconds
+    // Global var `stdscr` is created by the call to `initscr()`
+    getmaxyx(stdscr, max_y, max_x);
 
-    printf("Current time: %"PRIdMAX".%03ld seconds since the Epoch\n",
-           (intmax_t)s, ms);
-}
+    while(1) {
+        clear(); // Clear the screen of all
+        // previously-printed characters
+        mvprintw(y, x, "o"); // Print our "ball" at the current xy position
+        refresh();
 
-int main() {
-	print_current_time_with_ms();
+        usleep(DELAY); // Shorter delay between movements
 
-	return 0;
-}
+        next_x = x + direction;
+
+        if (next_x >= max_x || next_x < 0) {
+            direction *= -1;
+        } else {
+            x += direction;
+        }
+    }
+
+    endwin();
+}	

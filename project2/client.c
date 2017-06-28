@@ -212,10 +212,9 @@ int main(int argc, char *argv[])
 
                 fprintf(stdout, "<- %s\n", "*DED*");
 
+                sleep(1);
                 break;
             }
-        }
-        else {
         }
 
         /* some other useless updates */

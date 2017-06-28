@@ -15,6 +15,34 @@
 #define MAX_PENDING 5
 #define MAX_LINE 256
 
+
+char* road = "\
+                        |    |                        \n\
+                        |    |                        \n\
+                        |    |                        \n\
+                        |    |                        \n\
+                        |    |                        \n\
+                        |    |                        \n\
+                        |    |                        \n\
+                        |    |                        \n\
+                        |    |                        \n\
+                        |    |                        \n\
+------------------------      ------------------------\n\
+\n\
+\n\
+------------------------      ------------------------\n\
+                        |    |                        \n\
+                        |    |                        \n\
+                        |    |                        \n\
+                        |    |                        \n\
+                        |    |                        \n\
+                        |    |                        \n\
+                        |    |                        \n\
+                        |    |                        \n\
+                        |    |                        \n\
+                        |    |                        \n\
+";
+
 void welcome() {
     char* art = 
 "                                     /~\\ \n\
@@ -31,10 +59,10 @@ void welcome() {
                 /=\\ /=\\ /=\\         | | | \n\
 ________________[_]_[_]_[_]________/_]_[_\\________________\n";
 
-    fprintf(stdout, "%s\n-> Welcome to the server side of our application! \n\
-    Please enjoy as you watch the cars explode!!\n\
-    We are currently available at: localhost.\n", 
-            art);
+    // fprintf(stdout, "%s\n-> Welcome to the server side of our application! \n\
+    // Please enjoy as you watch the cars explode!!\n\
+    // We are currently available at: localhost.\n", 
+    //         art);
 }
 
 typedef struct {
@@ -152,6 +180,21 @@ int check_collision(Client clients[], int *car1, int *car2, Car cars[], int size
 }
 
 int main() {
+
+    // Cute animation stuff
+    int x = 0, y = 0;
+    int max_y = 0, max_x = 0;
+    int next_x = 0;
+    int direction = 1;
+
+    initscr();
+    noecho();
+    curs_set(FALSE);
+
+    // Global var `stdscr` is created by the call to `initscr()`
+    getmaxyx(stdscr, max_y, max_x);
+
+    // Boring stuff
     struct sockaddr_in socket_addr;
     char buff[MAX_LINE];
     unsigned int len;
@@ -200,6 +243,17 @@ int main() {
 
     /* wait for connections and do my job! */
     for ever {
+        /* Animation stuff */
+        clear();
+
+        mvprintw(0, 0, road);
+        //mvprintw(cars[0].y, cars[0].x, "o");
+        for(i = 0; i <= total_clients; i++) {
+            //if (!clients[i].used) continue;
+            mvprintw(cars[i].y + 11, cars[i].x*2 + 25, "o");
+        }
+        refresh();
+
         new_set = all_fds;
         nready = select(maxfd+1, &new_set, NULL, NULL, NULL);
         valid(nready, "Select function failed!\n");
@@ -222,8 +276,8 @@ int main() {
             ip[INET_ADDRSTRLEN] = '\0';
 
             /* print text on screen */
-            fprintf(stdout, "<- IP: %s PORT: %d Just Connected!\n", ip, 
-                ntohs(client.sin_port));
+            // fprintf(stdout, "<- IP: %s PORT: %d Just Connected!\n", ip, 
+            //     ntohs(client.sin_port));
 
             /* check available spot */
             for (i = 0; i < FD_SETSIZE; i++) {
@@ -276,7 +330,7 @@ int main() {
                       "Failed to receive any message from my connection!\n");
 
                 if (len == 0) {
-                    fprintf(stdout, "Connection closed!\n");
+                    //fprintf(stdout, "Connection closed!\n");
                     close(sockfd);
                     FD_CLR(sockfd, &all_fds);
 
@@ -297,18 +351,19 @@ int main() {
 
                     /* send back to client */
                     if (send(clients[i].descriptor, (char *)&command, sizeof(int), 0) == ERROR) {
-                        fprintf(stdout, "Failed to send echo to client!\n");
+                        //fprintf(stdout, "Failed to send echo to client!\n");
                         break;
                     }
 
                     if(car2 != -1) {
+                        fprintf(stdout, "command: %d\n", command);
                         /* print message on screen and Destination IP */
                         // fprintf(stdout, "<- %d\tsent to IP: %s at port: %d\n", command, 
                         //     ip, clients[car2].port);
 
                         /* send back to client */
                         if (send(clients[car2].descriptor, (char *)&command, sizeof(int), 0) == ERROR) {
-                            fprintf(stdout, "Failed to send echo to client!\n");
+                            //fprintf(stdout, "Failed to send echo to client!\n");
                             break;
                         }
                     }
@@ -318,8 +373,9 @@ int main() {
                                            * descriptor to be read */ 
             }
         }
-
     }
+
+    endwin();
 
     /* kthanxbye! */
     close(s);
