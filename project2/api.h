@@ -23,11 +23,7 @@
 #define HORIZONTAL	4
 #define VERTICAL	5
 
-/* clocks */
-#define CLOCK         1000
-
-#define LOW_LATENCY   10
-#define HIGH_LATENCY  100
+#define CLOCK    1000   /* speed will be updated here */
 
 #define ERROR -1
 #define ever (;;)
@@ -36,17 +32,25 @@
 #define false 0
 #define bool int
 
-typedef enum { LOW=1, HIGH=2 } Infra;
+typedef enum { LOW=9, HIGH=100 } Latency;   /* latency of each packet */
+typedef enum { SECURITY=1, ENTERTAINMENT=2, COMFORT=3, OTHER=4 } Type;
 
 typedef struct {
 	struct timespec cur_time;
-    int facing, size, x, y, vx, vy;
-    int infra;
+    int size, x, y, vx, vy;
+
+    Type type;
 } Car;
 
 void update_car(Car *car) {
     car->x += car->vx;
     car->y += car->vy;
+}
+
+/* * update car for /n/ iterations */
+void update_car_n(Car *car, int n) {
+    car->x += n*car->vx;
+    car->y += n*car->vy;
 }
 
 void error(const char* msg) {

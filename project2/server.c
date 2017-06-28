@@ -44,17 +44,27 @@ typedef struct {
 } Client;
 
 int sign(int a) {
-    if(a > 0)  return 1;
-    if(a == 0) return 0;
-    if(a < 0)  return -1;
+    if (a > 0)  return 1;
+    if (a == 0) return 0;
+    if (a < 0)  return -1;
 }
+
+#define DIVZERO(d, q) (q == 0 ? 0 : d/q)
+#define min(x, y) ((x) < (y) ? (x) : (y))
 
 /* * return time passed since NOW, in millissec * */
 int64_t since_now(struct timespec t) {
     struct timespec cur;
     clock_gettime(CLOCK_REALTIME, &cur);
 
-    return cur.tv_sec - t.tv_sec;
+    return min((cur.tv_sec - t.tv_sec)/CLOCK, 0);
+}
+
+void dummy() {
+    int i, n = 100000, j = 0;
+    for (i=0; i < n; ++i) {
+        ++j;
+    }
 }
 
 /* Check for car collision and return command */
@@ -63,65 +73,66 @@ int check_collision(Client clients[], int s, Car cars[], int size) {
     int i, j;
 
     /* Update cars */
-    for(i = 0; i < size; i++) {
+    for (i = 0; i < size; i++) {
         int64_t elapsed = since_now(cars[i].cur_time);
-
-        for(j = 0; j < elapsed; j++)
-            update_car(&cars[i]);
+        update_car_n(&cars[i], elapsed);
     }
 
     /* Check for collision */
     for(i = 0; i < size; i++) {
-        if(!clients[i].used || i == s) continue;
+        if (!clients[i].used || i == s) continue;
 
         Car target, source;
 
-        if(cars[s].vx == 0 && cars[i].vy == 0) {
+        if (cars[s].vx == 0 && cars[i].vy == 0) {
             target = cars[i];
             source = cars[s];
-        }
-        else if (cars[s].vy == 0 && cars[i].vx == 0) {
+
+        } else if (cars[s].vy == 0 && cars[i].vx == 0) {
             target = cars[s];
             source = cars[i];
-        }
-        else continue; // if they are going in the same direction
 
-        int x = source.x, y = target.y, cond_s, cond_t;
+        } else continue; // if they are going in the same direction...
 
-        // Check if already collided
-        if(source.vy > 0)
+        int x = source.x, 
+            y = target.y, 
+            cond_s, cond_t;
+
+        // check if already collided!
+        if (source.vy > 0)
             cond_s = source.y >= y && source.y <= y + source.size;
         else
             cond_s = source.y <= y && source.y >= y + -1 * source.size;
 
-        if(target.vx > 0)
+        if (target.vx > 0)
             cond_t = target.x >= x && target.x <= x + target.size;
         else
             cond_t = target.x <= x && target.x >= x + -1 * target.size;
 
-        if(cond_s && cond_t)
+        if (cond_s && cond_t)
             return AMBULANCE;
 
-        // Check if they will collide
+        // check if they will collide...
 
-        // Source
+        // source
         int dy = y - source.y;
-        int64_t time_in_s = source.vy == 0 ? 0 : dy / source.vy;
+        int64_t time_in_s = DIVZERO(dy, source.vy);
 
         dy = (y + sign(source.vy)*source.size) - source.y;
-        int64_t time_out_s = source.vy == 0 ? 0 : dy / source.vy;
+        int64_t time_out_s = DIVZERO(dy, source.vy);
 
-        // Target
+        // target
         int dx = x - target.x;
-        int64_t time_in_t = target.vx == 0 ? 0 : dx / target.vx;
+        int64_t time_in_t = DIVZERO(dx, source.vx);
 
         dx = (x + sign(target.vx)*target.size) - target.x;
-        int64_t time_out_t = target.vx == 0 ? 0 : dx / target.vx;
+        int64_t time_out_t = DIVZERO(dx, source.vx);
 
         // fprintf(stdout, "*******  %d %d %d %d \n", 
         //                 time_in_s, time_out_s, time_in_t, time_out_t);
-        // Will collide
-        if(time_in_s <= time_out_t && time_in_t <= time_out_s) 
+
+        // will collide!
+        if (time_in_s <= time_out_t && time_in_t <= time_out_s) 
             return BREAK;
     }
 
@@ -240,10 +251,12 @@ int main() {
         }
 
         for (i = 0; i <= total_clients; i++) {  /* verify if there is data for all clients */
+            /* is it being used? */
             if (!clients[i].used) {
                 continue;
             }
 
+            /* did i received something? */
             sockfd = clients[i].descriptor;
             if (FD_ISSET(sockfd, &new_set)) {
                 len = recv(sockfd, &cars[i], sizeof(cars[i]), 0);
@@ -257,10 +270,15 @@ int main() {
 
                     clients[i].used = false;
                 } else {
+                    int command;
+                    if (cars[i].type == SECURITY) {
+                        command = check_collision(clients, i, cars, total_clients);
+                    } else {
+                        command = 42;
+                        dummy();
+                    }
 
-                    int command = check_collision(clients, i, cars, total_clients);
-
-                    /* print message on screen and Destination IP*/
+                    /* print message on screen and Destination IP */
                     fprintf(stdout, "<- %d\tsent to IP: %s at port: %d\n", command, 
                         ip, clients[i].port);
 

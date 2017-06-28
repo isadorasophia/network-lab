@@ -12,15 +12,21 @@
 #define SERVER_PORT 12345
 
 /* * macros! * */
-#define READ(str, res)  {                             \
-                            printf("\t-> %s:: ", str);\
-                            scanf("%d", &res);        \
+#define READ(str, res)  {                               \
+                            printf("\t-> %s:: ", str);  \
+                            scanf("%d", &res);          \
                         }
-#define READL(str, res) {                             \
-                            printf("\t-> %s:: ", str);\
-                            scanf("%ld", &res);       \
-                            res = res * 1000;         \
+#define READS(str, res) {                               \
+                            printf("\t-> %s:: ", str);  \
+                            scanf("%ld", &res);         \
+                            res = res * 1000;           \
                         }
+#define READENUM(str, res) {                            \
+                            printf("\t-> %s:: ", str);  \
+                            int dummy;                  \
+                            scanf("%d", &dummy);        \
+                            res = dummy;                \
+                           }
 
 #define MILLISEC(d) (int64_t)(d.tv_sec*1000 + d.tv_nsec / 1.0e6)
 
@@ -55,10 +61,15 @@ int64_t time_passed(struct timespec start, struct timespec end) {
     return MILLISEC(end) - MILLISEC(start);
 }
 
+/* * returns latency of a given car * */
+int latency(Type type) {
+    return type == SECURITY ? HIGH : LOW;
+}
+
 int main(int argc, char *argv[])
 {
-    int64_t update_counter;
-    struct timespec update_t, sync_t, last_sent;
+    int64_t update_counter = 0;
+    struct timespec update_t, sync_t, last_sent_security, last_sent_other;
 
     struct hostent *host_address;
     char *host;
@@ -105,12 +116,15 @@ int main(int argc, char *argv[])
 
     /* get first input */
     Car my_car;
-    int n_inputs, inputs_read = 1;
+    int n_inputs = 0, inputs_read = 0;
 
-    READ("Infraestructure (1 <=> low ou 2 <=> high)", my_car.infra)
-
+    /* technical */
     READ("# of changes", n_inputs)
-    READL("# of time before update (s)", update_counter)
+
+    /* if we want to make changes... */
+    if (n_inputs > 0) {
+        READS("# of time before update (s)", update_counter);
+    }
 
     READ("Car length", my_car.size)
     READ("Position x", my_car.x)
@@ -130,8 +144,9 @@ int main(int argc, char *argv[])
     /* set our timings */
     int32_t counter = 0;
     clock_gettime(CLOCK_REALTIME, &sync_t);
-    clock_gettime(CLOCK_REALTIME, &last_sent);
     clock_gettime(CLOCK_REALTIME, &update_t);
+    clock_gettime(CLOCK_REALTIME, &last_sent_security);
+    clock_gettime(CLOCK_REALTIME, &last_sent_other);
 
     for ever {
         /* update parameters! */
@@ -145,9 +160,9 @@ int main(int argc, char *argv[])
 
             READ("Velocity x", my_car.vx)
             READ("Velocity y", my_car.vy)
-            READL("# of time before update (s)", update_counter)
+            READS("# of time before update (s)", update_counter)
 
-            fprintf(stdout, "\t!! You got %d updates left!", inputs_read);
+            fprintf(stdout, "\t[[You got %d updates left!]]\n", n_inputs-inputs_read);
         }
 
         /** clock syncs **/
@@ -158,9 +173,10 @@ int main(int argc, char *argv[])
             update_car(&my_car);
         }
 
-        /* after X seconds, send information */
-        if (time_passed(last_sent, my_car.cur_time) >= CLOCK) {
-            last_sent = my_car.cur_time;
+        /* check for security packets */
+        if (time_passed(last_sent_security, my_car.cur_time) >= latency(SECURITY)) {
+            last_sent_security = my_car.cur_time;
+            my_car.type = SECURITY;
 
             /* send message */
             valid(send(s, (char *)&my_car, sizeof(my_car), 0),
@@ -176,8 +192,8 @@ int main(int argc, char *argv[])
                 break;
             }
 
-            fprintf(stdout, "-> Time: %ld, X = %d, Y = %d, VX = %d, VY = %d\n", 
-                MILLISEC(last_sent), my_car.x, my_car.y, my_car.vx, my_car.vy);
+            fprintf(stdout, "-> Time: %lds, X = %d, Y = %d, VX = %d, VY = %d\n", 
+                MILLISEC(last_sent_security), my_car.x, my_car.y, my_car.vx, my_car.vy);
 
             if (command == BREAK) {
                 my_car.vx = 0;
@@ -199,6 +215,26 @@ int main(int argc, char *argv[])
             }
         }
 
+        /* some other useless updates */
+        if (time_passed(last_sent_other, my_car.cur_time) >= latency(OTHER)) {
+            last_sent_other = my_car.cur_time;
+
+            /* send message */
+            valid(send(s, (char *)&my_car, sizeof(my_car), 0),
+                    "Failed to send any message from my connection!\n");
+
+            /* receive command */
+            int command;
+            int32_t len = recv(s, &command, sizeof(int), 0);
+            valid(len, "Failed to receive any messages from my connection!\n");
+
+            if (len == 0) {
+                fprintf(stdout, "Connection was closed!\n");
+                break;
+            }
+
+            /* whatever */
+        }
     }
 
     /* clean up our mess */
