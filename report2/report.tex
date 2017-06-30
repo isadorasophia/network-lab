@@ -46,15 +46,6 @@ Luiz Fernando Bittencourt\thanks{MC833, Instituto de Computação, Universidade 
 O objetivo do trabalho foi a implementação de um gerenciamento de trânsito e cruzamento, analisando o \textit{trade-off} e a performance do algoritmo desenvolvido, além de seu impacto no mundo real.
 \end{abstract}
 
-%%% image for demo! %%%%%%%%%% 
-\begin{figure*}
-\begin{center}
-    \includegraphics[width=1\textwidth]{img/sample.png}
-    \caption{Exemplo de funcionamento do projeto}   
-\end{center} 
-\end{figure*}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% page 2
-
 %%% Introdução %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 Neste projeto, foi implementado um sistema cliente-servidor onde cada cliente representa um carro atravessando um cruzamento de mão dupla e o servidor fica responsável por processar três tipos de requisitos dos carros: \textbf{segurança}, \textbf{entretenimento} e \textbf{tráfego}.
 
@@ -117,6 +108,16 @@ typedef struct {
 
     Cada carro atualiza sua própria posição toda vez que o contador do respectivo cliente passa de 1 segundo. Então, a função \texttt{update\_car()} é chamada.
 
+
+%%% image for demo! %%%%%%%%%% 
+\begin{figure*}
+\begin{center}
+    \includegraphics[width=1\textwidth]{img/server-demo}
+    \caption{Exemplo de funcionamento do projeto. À esquerda, o servidor recebe o sinal de cada carro e, à direita, a resposta da comunicação dos clientes.}   
+\end{center} 
+\end{figure*}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% page 2
+
 \begin{lstlisting}[caption={Código para a atualização de um carro}, label=Algorithm]
 /* * update car for /n/ iterations */
 void update_car_n(Car *car, int n) {
@@ -128,13 +129,13 @@ void update_car_n(Car *car, int n) {
     Cada cliente recebe um arquivo de entrada com as seguintes informações:
 
     \begin{enumerate}
-        \item quantidade de updates para as informações do carro;
-        \item tamanho do carro;
-        \item posição x;
-        \item posição y;
-        \item velocidade x;
-        \item velocidade y;
-        \item tempo de duração total
+        \item Quantidade de updates para as informações do carro;
+        \item Tamanho do carro;
+        \item Posição x;
+        \item Posição y;
+        \item Velocidade x;
+        \item Velocidade y;
+        \item Tempo de duração total.
     \end{enumerate}
 
     E a cada intervalo de tempo definido nesta entrada, lê a próxima velocidade definida. Após os inputs terminarem, se necessário, uma velocidade padrão é definida para o carro.
@@ -228,7 +229,7 @@ Foi implementado o cálculo do tempo utilizando a equação:
 \cfrac{\Delta S}{V} = \Delta T
 \end{equation}
 
-    ...que nos retorna o tempo necessário para andar dS unidades andando com velocidade V.
+    ...que nos retorna o tempo necessário para andar $\Delta S$ unidades andando com velocidade V.
     
     Então, se os intervalos se intersectam, mandamos para um dos carros o comando de freio junto com um intervalo de tempo no qual ele deve ficar parado. Este intervalo é calculado verificando o imaior intervalo de tempo entre o carro 1 e o 2 entrarem e sairem do cruzamento.
 
@@ -250,6 +251,33 @@ Caso não são detectadas colisões, apenas pede ao carro que chama a função c
 %%
 \section{Resultados e discussão}
 Para a validação da corretude do programa, foram executados diversos testes de fim a determinar a efetividade do nosso sistema de trânsito desenvolvido.
+
+Para validar a etapa que detecta a colisão entre os carros - e, mais importante, evitar que eles se colidem - foi utilizado o recurso visual do servidor. O processo de teste baseou-se na instanciação de diferentes arquivos de entrada para cada carro e, a partir disso, foi realizada a observação visual do mapa servidor. Logo, os testes permitiram que validássemos o algoritmo desenvolvidos ao longo do trabalho.
+
+Por exemplo: foram executados testes para verificar se ocorria alguma colisão e, se ocorresse, se o servidor notificava corretamente. A partir desse caso, o cálculo para a sinalização de espera (freio) de um carro foi obtido a partir do experimento visual de diferentes implementações e algoritmos.
+
+De uma forma geral, a etapa visual foi feita para validar a corretude do algoritmo e propor algumas otimizações ao sistema desenvolvido.
+
+\begin{figure}[ht!]
+    \center\includegraphics[width=.75\hsize]{img/cinco}
+    \caption{Gráfico de atraso para um sistema com cinco carros.}
+\end{figure}
+
+\begin{figure}[ht!]
+    \center\includegraphics[width=.75\hsize]{img/dez}
+    \caption{Gráfico de atraso para um sistema com dez carros.}
+\end{figure}
+
+Em seguida, são avaliados aspectos técnicos do canal de comunicação entre o cliente e servidor. O primeiro caso de teste analisa a quantidade de tempo de \textit{delay} que o servidor demora para enviar a resposta, em relação do número de carros no sistema. É evidente que, quanto maior o número de carros, o servidor sofreria atraso na resposta - dado que todo o processamento do servidor ocorre de forma serial. Os gráficos acima ilustram o levantamento desses dados.
+
+No caso de apenas um carro no sistema, o atraso em milissegundos era zero (ou seja, o atraso era desprezível). Logo, não foi disposto gráfico para esse caso.
+
+O agravante dos valores dos atrasos dependia de fatores como velocidade dos carros e o clock do sistema - caso os carros se movimentassem lentamente, os valores de atraso não interferiam na prevenção de acidentes - isto é, os valores de atraso tornavam-se desprezíveis. 
+
+\section{Ideias finais}
+De uma forma geral, o funcionamento do sistema foi relativamente estável, e evitou que acidentes ocorressem. Entretanto, se o algoritmo se escalasse a milhares de clientes, mudanças na infraestrutura teriam de ser feitas de modo a otimizar o processamento e evitar que ocorressem atrasos. Uma vez que atrasos acarretam em um número maior de acidentes.
+
+Algoritmos de sincronização paralela seriam capazes de otimizar o funcionamento do servidor, por exemplo. Assim, no caso de um número de carros $< 1000$, os resultados foram satisfatórios.
 
 %%% References %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
